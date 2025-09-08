@@ -1,16 +1,9 @@
 (() => {
-  // ===========================
-  // Config avatar (tutto qui)
-  // ===========================
   const DATA_URL = 'followers.json';
 
   // Placeholder: prova in ordine .jpg, .jpeg, .webp, .png
   const PLACEHOLDER_CANDIDATES = ['placeholder.jpg', 'placeholder.jpeg', 'placeholder.webp', 'placeholder.png'];
 
-  // URL predefinito del tunnel (lascia vuoto e impostalo dal browser con Alt+A)
-  const DEFAULT_AVATAR_BASE = '';
-
-  const AVATAR_KEY = 'avatar_base';
   function sanitizeBase(url) {
     if (typeof url !== 'string') return '';
     url = url.trim();
@@ -20,30 +13,8 @@
     return url;
   }
   function getAvatarBase() {
-    const fromLS = localStorage.getItem(AVATAR_KEY) || '';
-    return sanitizeBase(fromLS) || sanitizeBase(DEFAULT_AVATAR_BASE);
+    return sanitizeBase(window.AVATAR_BASE || '');
   }
-  function setAvatarBase(url) {
-    const clean = sanitizeBase(url);
-    if (!clean) {
-      localStorage.removeItem(AVATAR_KEY);
-      return '';
-    }
-    localStorage.setItem(AVATAR_KEY, clean);
-    return clean;
-  }
-  // Scorciatoia: Alt+A per impostare rapidamente l’URL del tunnel (https://...trycloudflare.com/)
-  window.addEventListener('keydown', (e) => {
-    if (e.altKey && (e.key === 'a' || e.key === 'A')) {
-      const current = getAvatarBase();
-      const input = prompt('Imposta AVATAR BASE (https://.../):', current);
-      if (input !== null) {
-        const saved = setAvatarBase(input);
-        alert(saved ? 'Salvato: ' + saved : 'URL non valido. Rimosso.');
-      }
-    }
-  });
-
   function buildAvatarURL(file) {
     if (!file) return '';
     const f = String(file);
@@ -52,8 +23,6 @@
     if (!base) return '';
     return base + encodeURIComponent(f);
   }
-
-  // Costruisce la lista completa di URL placeholder da provare
   function buildPlaceholderURLs() {
     const base = getAvatarBase();
     if (!base) return [];
@@ -179,8 +148,8 @@
   function normalizeRow(r) {
     return {
       nickname: String(r.nickname || r.nick || r.name || '').trim(),
-      img_url: r.img_url ? String(r.img_url) : '',
-      img_url_original: r.img_url_original ? String(r.img_url_original) : '',
+      img_url: String(r.img_url || r.image || r.photo || r.pic || r.avatar || r.img || '').trim(),
+      img_url_original: String(r.img_url_original || r.image_url || r.photo_url || r.pic_url || '').trim(),
       livello: Number(r.livello ?? 1),
       esperienza: Number(r.esperienza ?? 0),
       kill: Number(r.kill ?? r.kills ?? 0),
@@ -200,7 +169,7 @@
 
   // Costruisce l'URL dell'immagine:
   // - se img_url_original è un URL assoluto, usa quello;
-  // - altrimenti combina AVATAR_BASE con img_url (nome file nella tua cartella immagini).
+  // - altrimenti combina AVATAR_BASE con img_url (nome file).
   function photoUrl(r) {
     const orig = r.img_url_original ? String(r.img_url_original) : '';
     if (/^https?:\/\//i.test(orig)) return orig;
@@ -250,7 +219,7 @@
       fbIdx = 1;
     }
 
-    const dataFallbacks = fallbacks.join('|'); // es. "https://.../placeholder.jpg|https://.../placeholder.webp"
+    const dataFallbacks = fallbacks.join('|');
     const img = imgSrc
       ? `<img src="${escapeHtml(imgSrc)}" alt="" data-fallbacks="${escapeHtml(dataFallbacks)}" data-fb-idx="${fbIdx}">`
       : '';
@@ -378,7 +347,6 @@
       img.addEventListener('load', onOk);
       img.addEventListener('error', onFail);
 
-      // Stato iniziale (se già in cache o se l'URL iniziale fallisce subito)
       if (img.complete) {
         if (img.naturalWidth > 1) onOk();
         else onFail();
