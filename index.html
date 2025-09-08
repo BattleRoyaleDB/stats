@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>BattleRoyaleDB - Leaderboard</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>BattleRoyaleDB</h1>
+    <p class="subtitle">Leaderboard — vittorie • uccisioni • morti</p>
+  </header>
+
+  <main class="container">
+    <section class="controls">
+      <div class="left">
+        <label class="search">
+          <input id="searchInput" placeholder="Cerca nickname..." autocomplete="off" />
+        </label>
+        <button id="clearSearch" title="Pulisci">×</button>
+      </div>
+
+      <div class="right">
+        <label>
+          Mostra:
+          <select id="viewSelect">
+            <option value="top10">Top 10</option>
+            <option value="all">Tutti</option>
+          </select>
+        </label>
+        <button id="refreshBtn">Aggiorna</button>
+      </div>
+    </section>
+
+    <section class="board">
+      <table id="leaderboard" role="table">
+        <thead>
+          <tr>
+            <th data-col="rank">#</th>
+            <th data-col="nickname">Nickname</th>
+            <th data-col="vittorie" class="sortable">Vittorie ▾</th>
+            <th data-col="kill" class="sortable">Uccisioni</th>
+            <th data-col="morti" class="sortable">Morti</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <aside id="detailPanel" class="detail hidden" aria-hidden="true">
+      <button id="closeDetail" class="close">×</button>
+      <div class="detail-inner">
+        <img id="detailAvatar" class="avatar" alt="" src="" />
+        <h2 id="detailNick"></h2>
+        <ul class="stats">
+          <li>Vittorie: <strong id="detailVittorie">0</strong></li>
+          <li>Uccisioni: <strong id="detailKill">0</strong></li>
+          <li>Morti: <strong id="detailMorti">0</strong></li>
+        </ul>
+      </div>
+    </aside>
+
+    <footer class="footer">
+      <small>Aggiorna followers.json e fai push per aggiornare la classifica.</small>
+    </footer>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html><!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>BattleRoyaleDB - Leaderboard</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>BattleRoyaleDB</h1>
+    <p class="subtitle">Leaderboard — vittorie • uccisioni • morti</p>
+  </header>
+
+  <main class="container">
+    <section class="controls">
+      <div class="left">
+        <label class="search">
+          <input id="searchInput" placeholder="Cerca nickname..." autocomplete="off" />
+        </label>
+        <button id="clearSearch" title="Pulisci">×</button>
+      </div>
+
+      <div class="right">
+        <label>
+          Mostra:
+          <select id="viewSelect">
+            <option value="top10">Top 10</option>
+            <option value="all">Tutti</option>
+          </select>
+        </label>
+        <button id="refreshBtn">Aggiorna</button>
+      </div>
+    </section>
+
+    <section class="board">
+      <table id="leaderboard" role="table">
+        <thead>
+          <tr>
+            <th data-col="rank">#</th>
+            <th data-col="nickname">Nickname</th>
+            <th data-col="vittorie" class="sortable">Vittorie ▾</th>
+            <th data-col="kill" class="sortable">Uccisioni</th>
+            <th data-col="morti" class="sortable">Morti</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <aside id="detailPanel" class="detail hidden" aria-hidden="true">
+      <button id="closeDetail" class="close">×</button>
+      <div class="detail-inner">
+        <img id="detailAvatar" class="avatar" alt="" src="" />
+        <h2 id="detailNick"></h2>
+        <ul class="stats">
+          <li>Vittorie: <strong id="detailVittorie">0</strong></li>
+          <li>Uccisioni: <strong id="detailKill">0</strong></li>
+          <li>Morti: <strong id="detailMorti">0</strong></li>
+        </ul>
+      </div>
+    </aside>
+
+    <footer class="footer">
+      <small>Aggiorna followers.json e fai push per aggiornare la classifica.</small>
+    </footer>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
