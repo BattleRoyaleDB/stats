@@ -1,218 +1,363 @@
-// app.js — leaderboard + search + NDJSON fallback
 (() => {
   const DATA_URL = 'followers.json';
-  let rawData = [];
-  let viewMode = 'top10';
-  let sortCol = 'vittorie';
-  let sortDir = 'desc'; // desc or asc
 
-  const tbody = document.querySelector('#leaderboard tbody');
-  const searchInput = document.getElementById('searchInput');
-  const viewSelect = document.getElementById('viewSelect');
-  const refreshBtn = document.getElementById('refreshBtn');
-  const clearSearch = document.getElementById('clearSearch');
+  const els = {
+    podiumTop: document.getElementById('podiumTop'),
+    listV: document.getElementById('listVittorie'),
+    listK: document.getElementById('listKill'),
+    listM: document.getElementById('listMorti'),
+    lensBtn: document.querySelector('.icon-btn'),
+    overlay: document.getElementById('searchOverlay'),
+    overlayInput: document.getElementById('overlaySearchInput'),
+    suggestions: document.getElementById('suggestions'),
+    footerSmall: document.querySelector('.footer small'),
+  };
 
-  const detail = document.getElementById('detailPanel');
-  const detailAvatar = document.getElementById('detailAvatar');
-  const detailNick = document.getElementById('detailNick');
-  const detailV = document.getElementById('detailVittorie');
-  const detailK = document.getElementById('detailKill');
-  const detailM = document.getElementById('detailMorti');
-  const closeDetail = document.getElementById('closeDetail');
+  let allPlayers = [];
 
   async function fetchData() {
     try {
       const r = await fetch(DATA_URL + '?_=' + Date.now());
       const text = await r.text();
-      const data = parseMaybeNdjson(text);
-      rawData = data.map(normalizeRow);
-      render();
+      const rowsRaw = parseSuperFlexible(text);
+      const rows = rowsRaw.map(normalizeRow);
+
+      // dedupe per nickname (tieni più vittorie)
+      const map = new Map();
+      for (const rec of rows) {
+        const key = (rec.nickname || '').toLowerCase();
+        if (!key) continue;
+        const prev = map.get(key);
+        if (!prev || (rec.vittorie || 0) > (prev.vittorie || 0)) map.set(key, rec);
+      }
+      allPlayers = [...map.values()];
+
+      if (els.footerSmall) {
+        els.footerSmall.textContent = `Giocatori caricati: ${rows.length} • Unici: ${allPlayers.length}`;
+      }
+
+      renderAll(rows);
+      setupOverlaySearch();
     } catch (e) {
-      console.error('Errore fetch data', e);
-      tbody.innerHTML = '<tr><td colspan="5">Errore caricamento followers.json</td></tr>';
+      console.error('Errore fetch/parsing followers.json:', e);
+      showError('Errore caricamento followers.json');
     }
   }
 
-  function parseMaybeNdjson(text) {
-    text = text.trim();
+  function showError(msg) {
+    [els.listV, els.listK, els.listM].forEach(el => {
+      if (el) el.innerHTML = `<li class="muted" style="padding:10px;text-align:center;list-style:none">${msg}</li>`;
+    });
+    if (els.podiumTop) els.podiumTop.innerHTML = '';
+  }
+
+  // Parser super flessibile (array con [ ], NDJSON e varianti)
+  function parseSuperFlexible(text) {
     if (!text) return [];
-    // prima prova: JSON array
+    let t = String(text).replace(/^\uFEFF/, '').trim();
+    if (!t) return [];
+
     try {
-      const parsed = JSON.parse(text);
+      const parsed = JSON.parse(t);
       if (Array.isArray(parsed)) return parsed;
-    } catch(_) {}
-    // fallback: NDJSON (una riga = un oggetto)
-    const lines = text.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+    } catch (_) {}
+
+    const i0 = t.indexOf('[');
+    const i1 = t.lastIndexOf(']');
+    if (i0 !== -1 && i1 !== -1 && i1 > i0) {
+      const arrText = t.slice(i0, i1 + 1).trim();
+      try {
+        const parsed = JSON.parse(arrText);
+        if (Array.isArray(parsed)) return parsed;
+      } catch (_) {}
+      const items = extractObjectsFromArray(arrText);
+      if (items.length) return items;
+    }
+
     const out = [];
-    for (const l of lines) {
-      try { out.push(JSON.parse(l)); } catch(e) { console.warn('skipping line', l); }
+    for (let raw of t.split(/\r?\n/)) {
+      let s = raw.trim();
+      if (!s || s === '[' || s === ']') continue;
+      if (s.endsWith(',')) s = s.slice(0, -1).trim();
+      if (s.startsWith('{') && s.endsWith('}')) {
+        try { out.push(JSON.parse(s)); } catch {}
+      }
+    }
+    return out;
+  }
+
+  function extractObjectsFromArray(arrText) {
+    let s = arrText.trim();
+    if (s.startsWith('[')) s = s.slice(1);
+    if (s.endsWith(']')) s = s.slice(0, -1);
+
+    const out = [];
+    let i = 0, n = s.length;
+    let depth = 0, start = -1, inStr = false, quote = '"';
+
+    while (i < n) {
+      const ch = s[i];
+      if (inStr) {
+        if (ch === '\\') { i += 2; continue; }
+        if (ch === quote) inStr = false;
+        i++; continue;
+      }
+      if (ch === '"' || ch === "'") { inStr = true; quote = ch; i++; continue; }
+      if (ch === '{') { if (depth === 0) start = i; depth++; }
+      else if (ch === '}') {
+        depth--;
+        if (depth === 0 && start !== -1) {
+          const objText = s.slice(start, i + 1);
+          try { out.push(JSON.parse(objText)); } catch {}
+          start = -1;
+        }
+      }
+      i++;
     }
     return out;
   }
 
   function normalizeRow(r) {
     return {
-      nickname: r.nickname || r.nick || r.name || '',
-      kill: Number(r.kill || r.kills || 0),
-      morti: Number(r.morti || r.deaths || 0),
-      vittorie: Number(r.vittorie || r.wins || 0),
-      img: r.img_url || r.avatar || r.img || r.image || null
+      nickname: String(r.nickname || r.nick || r.name || '').trim(),
+      img_url: r.img_url ? String(r.img_url) : '',
+      img_url_original: r.img_url_original ? String(r.img_url_original) : '',
+      livello: Number(r.livello ?? 1),
+      esperienza: Number(r.esperienza ?? 0),
+      kill: Number(r.kill ?? r.kills ?? 0),
+      morti: Number(r.morti ?? r.deaths ?? 0),
+      vittorie: Number(r.vittorie ?? r.wins ?? 0),
     };
   }
 
-  function render() {
-    const q = searchInput.value.trim().toLowerCase();
-    let data = rawData.slice();
+  function escapeHtml(s) {
+    return String(s)
+      .replaceAll('&','&amp;')
+      .replaceAll('<','&lt;')
+      .replaceAll('>','&gt;')
+      .replaceAll('"','&quot;')
+      .replaceAll("'",'&#39;');
+  }
 
-    // sort
-    data.sort((a,b) => {
-      let v = 0;
-      if (sortCol === 'vittorie') v = b.vittorie - a.vittorie;
-      else if (sortCol === 'kill') v = b.kill - a.kill;
-      else if (sortCol === 'morti') v = a.morti - b.morti; // fewer morti is better? keep desc default is higher first
-      if (sortDir === 'asc') v = -v;
-      if (v !== 0) return v;
-      // tie-break by nickname
-      return a.nickname.localeCompare(b.nickname, undefined, {sensitivity:'base'});
-    });
+  function photoUrl(r) {
+    return r.img_url_original || r.img_url || '';
+  }
 
-    if (q) data = data.filter(r => r.nickname.toLowerCase().includes(q));
+  // Visuals per badge/chiP livello: gradiente + bordo + colore testo
+  function levelVisuals(lvl) {
+    const L = Math.max(1, Math.min(150, Number(lvl) || 1));
+    let bg, border = '#ffffff', color = '#111827', title = `Livello ${L}`;
+    if (L >= 150)      { bg = 'linear-gradient(135deg,#7f0000,#b30000)'; border = '#000000'; title += ' (MAX)'; color = '#fff'; }
+    else if (L >= 140) { bg = 'linear-gradient(135deg,#7a0000,#d10000)'; border = '#4a0000'; color = '#fff'; }
+    else if (L >= 121) { bg = 'linear-gradient(135deg,#b91c1c,#dc2626)'; border = '#7f1d1d'; color = '#fff'; }
+    else if (L >= 101) { bg = 'linear-gradient(135deg,#6d28d9,#7c3aed)'; border = '#5b21b6'; color = '#fff'; }
+    else if (L >= 81)  { bg = 'linear-gradient(135deg,#06b6d4,#3b82f6)'; border = '#075985'; color = '#fff'; }
+    else if (L >= 61)  { bg = 'linear-gradient(135deg,#16a34a,#22c55e)'; border = '#166534'; color = '#fff'; }
+    else if (L >= 41)  { bg = 'linear-gradient(135deg,#f59e0b,#fbbf24)'; border = '#b45309'; color = '#3b2a00'; }
+    else if (L >= 21)  { bg = 'linear-gradient(135deg,#ec4899,#a855f7)'; border = '#7e22ce'; color = '#fff'; }
+    else if (L >= 6)   { bg = 'linear-gradient(135deg,#4f46e5,#8b5cf6)'; border = '#4338ca'; color = '#fff'; }
+    else               { bg = 'linear-gradient(135deg,#00c2ff,#ff6bd6)'; border = '#3b82f6'; color = '#111827'; }
+    return { bg, border, color, title };
+  }
 
-    if (viewMode === 'top10' && !q) data = data.slice(0, 10);
+  function levelBadgeMarkup(lvl) {
+    const v = levelVisuals(lvl);
+    return `<span class="lvl-badge" style="--lv-bg:${v.bg};--lv-border:${v.border};--lv-color:${v.color}" title="${escapeHtml(v.title)}"><span class="pfx">LVL</span> ${Number(lvl) || 1}</span>`;
+  }
+  function levelChipMarkup(lvl) {
+    const v = levelVisuals(lvl);
+    // per liste usiamo bordo più chiaro (impostato in CSS ma lo lasciamo override se serve)
+    return `<span class="lvl-chip" style="--lv-bg:${v.bg};--lv-color:${v.color}" title="${escapeHtml(v.title)}"><span class="pfx">LVL</span> ${Number(lvl) || 1}</span>`;
+  }
 
-    if (!data.length) {
-      tbody.innerHTML = '<tr><td colspan="5">Nessun risultato</td></tr>';
-      return;
+  function avatarMarkup(r) {
+    const url = photoUrl(r);
+    const initial = (r.nickname || '?').match(/[A-Za-z0-9]/)?.[0]?.toUpperCase() || '?';
+    const img = url ? `<img src="${escapeHtml(url)}" alt="">` : '';
+    // Inserisco il badge livello dentro l'avatar (overlay top-left)
+    return `
+      <span class="avatar lg">
+        ${img}
+        <span class="initial">${escapeHtml(initial)}</span>
+        ${levelBadgeMarkup(r.livello)}
+      </span>
+    `;
+  }
+
+  function renderAll(data) {
+    const vNonZero = data.filter(d => (d.vittorie || 0) > 0);
+    const kNonZero = data.filter(d => (d.kill || 0) > 0);
+    const mNonZero = data.filter(d => (d.morti || 0) > 0);
+
+    // VITTORIE
+    const vSorted = [...vNonZero].sort((a,b) => (b.vittorie - a.vittorie) || a.nickname.localeCompare(b.nickname));
+    const vRanked = vSorted.map((r, i) => ({ r, pos: i + 1 }));
+    renderPodium(vRanked.slice(0, 3));
+
+    const restV = vRanked.slice(3, 10);
+    if (restV.length) {
+      els.listV.setAttribute('start', '4');
+      els.listV.innerHTML = listRowsMarkup(restV, 'vittorie');
+    } else {
+      els.listV.removeAttribute('start');
+      els.listV.innerHTML = '';
     }
 
-    tbody.innerHTML = '';
-    data.forEach((r, idx) => {
-      const tr = document.createElement('tr');
-      tr.dataset.nick = r.nickname;
-      const rank = document.createElement('td');
-      rank.className = 'rank';
-      rank.textContent = (idx+1);
-      const nickTd = document.createElement('td');
-      nickTd.className = 'nicknameCell';
-      const img = document.createElement('img');
-      img.className = 'avatarSmall';
-      img.alt = r.nickname;
-      img.src = r.img || ('data:image/svg+xml;utf8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="100%" height="100%" fill="#1b1d20"/><text x="50%" y="50%" dominant-baseline="central" text-anchor="middle" fill="#9aa3ac" font-family="Arial" font-size="18">${(r.nickname||'')[0]||'?'}</text></svg>`));
-      nickTd.appendChild(img);
-      const nickSpan = document.createElement('span');
-      nickSpan.textContent = r.nickname;
-      nickTd.appendChild(nickSpan);
+    // KILL Top 5
+    const kRanked = [...kNonZero]
+      .sort((a,b) => (b.kill - a.kill) || a.nickname.localeCompare(b.nickname))
+      .slice(0, 5)
+      .map((r, i) => ({ r, pos: i + 1 }));
+    els.listK.removeAttribute('start');
+    els.listK.innerHTML = listRowsMarkup(kRanked, 'kill');
 
-      const vtd = document.createElement('td'); vtd.textContent = r.vittorie;
-      const ktd = document.createElement('td'); ktd.textContent = r.kill;
-      const mtd = document.createElement('td'); mtd.textContent = r.morti;
-
-      tr.appendChild(rank);
-      tr.appendChild(nickTd);
-      tr.appendChild(vtd);
-      tr.appendChild(ktd);
-      tr.appendChild(mtd);
-
-      tr.addEventListener('click', () => openDetail(r, tr));
-
-      tbody.appendChild(tr);
-    });
-
-    // highlight if query param nick present
-    const urlNick = getUrlNick();
-    if (urlNick) {
-      highlightNick(urlNick);
-    }
+    // MORTI Top 5
+    const mRanked = [...mNonZero]
+      .sort((a,b) => (b.morti - a.morti) || a.nickname.localeCompare(b.nickname))
+      .slice(0, 5)
+      .map((r, i) => ({ r, pos: i + 1 }));
+    els.listM.removeAttribute('start');
+    els.listM.innerHTML = listRowsMarkup(mRanked, 'morti');
   }
 
-  function openDetail(r, rowElem) {
-    detail.classList.remove('hidden');
-    detail.setAttribute('aria-hidden','false');
-    detailAvatar.src = r.img || '';
-    detailAvatar.alt = r.nickname;
-    detailNick.textContent = r.nickname;
-    detailV.textContent = r.vittorie;
-    detailK.textContent = r.kill;
-    detailM.textContent = r.morti;
-    // scroll row into view and highlight
-    clearHighlights();
-    rowElem.classList.add('highlight');
-    rowElem.scrollIntoView({behavior:'smooth', block:'center'});
-    // update URL hash
-    history.replaceState(null, '', '#'+encodeURIComponent(r.nickname));
+  // Podio: avatar con badge livello + nickname pulito sotto
+  function renderPodium(entries) {
+    const [one, two, three] = [entries[0], entries[1], entries[2]];
+    const card = (entry) => {
+      if (!entry) return '';
+      const { r, pos } = entry;
+      return `
+        <div class="card place-${pos}" data-nick="${escapeHtml((r.nickname || '').toLowerCase())}">
+          <div class="big">${pos}</div>
+          <div class="col">
+            ${avatarMarkup(r)}
+            <span class="name" title="${escapeHtml(r.nickname)}">${escapeHtml(r.nickname)}</span>
+          </div>
+          <div class="win-badge" title="${r.vittorie}">${r.vittorie}</div>
+        </div>
+      `;
+    };
+    const html = `${card(two)}${card(one)}${card(three)}`;
+    els.podiumTop.innerHTML = html;
   }
 
-  function closeDetailPanel() {
-    detail.classList.add('hidden');
-    detail.setAttribute('aria-hidden','true');
-    clearHighlights();
+  // Liste: nickname + chip livello + metrica
+  function listRowsMarkup(items, metric) {
+    if (!items.length) return '';
+    return items.map(({ r }) => {
+      const value = r[metric] ?? 0;
+      return `
+        <li data-nick="${escapeHtml((r.nickname || '').toLowerCase())}">
+          <div class="row">
+            <span class="nick">
+              <span class="name-line">
+                <span class="name" title="${escapeHtml(r.nickname)}">${escapeHtml(r.nickname)}</span>
+                ${levelChipMarkup(r.livello)}
+              </span>
+            </span>
+            <span class="metric" title="${value}">${value}</span>
+          </div>
+        </li>
+      `;
+    }).join('');
   }
 
-  function clearHighlights() {
-    document.querySelectorAll('tbody tr.highlight').forEach(t => t.classList.remove('highlight'));
-  }
+  /* ====== Overlay Ricerca ====== */
 
-  function getUrlNick() {
-    const hash = decodeURIComponent(location.hash.replace(/^#/, ''));
-    if (hash) return hash;
-    const params = new URLSearchParams(location.search);
-    return params.get('nick') || '';
-  }
+  function setupOverlaySearch() {
+    if (!els.overlay || !els.lensBtn || !els.overlayInput) return;
 
-  function highlightNick(nick) {
-    if (!nick) return;
-    nick = nick.toLowerCase();
-    const row = Array.from(tbody.querySelectorAll('tr')).find(tr => (tr.dataset.nick||'').toLowerCase() === nick);
-    if (row) {
-      clearHighlights();
-      row.classList.add('highlight');
-      row.scrollIntoView({behavior:'smooth', block:'center'});
-      // optionally open detail
-      const r = rawData.find(x => x.nickname.toLowerCase() === nick);
-      if (r) {
-        detail.classList.remove('hidden');
-        detail.setAttribute('aria-hidden','false');
-        detailAvatar.src = r.img || '';
-        detailAvatar.alt = r.nickname;
-        detailNick.textContent = r.nickname;
-        detailV.textContent = r.vittorie;
-        detailK.textContent = r.kill;
-        detailM.textContent = r.morti;
+    els.lensBtn.addEventListener('click', openOverlay);
+    els.overlay.addEventListener('click', (e) => { if (e.target.dataset.close) closeOverlay(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && isOverlayOpen()) closeOverlay(); });
+
+    els.overlayInput.addEventListener('input', onQueryChange);
+    els.overlayInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const first = els.suggestions.querySelector('li');
+        if (first) {
+          chooseSuggestion(first.dataset.nick);
+        } else {
+          const q = normalizeQuery(els.overlayInput.value);
+          if (q) chooseSuggestion(q);
+        }
       }
-    }
+    });
   }
 
-  // UI: header sort clicks
-  document.querySelectorAll('th.sortable').forEach(th => {
-    th.addEventListener('click', () => {
-      const col = th.dataset.col;
-      if (sortCol === col) sortDir = (sortDir === 'desc') ? 'asc' : 'desc';
-      else { sortCol = col; sortDir = 'desc'; }
-      document.querySelectorAll('th.sortable').forEach(t => t.classList.remove('asc','desc'));
-      th.classList.add(sortDir);
-      render();
+  function openOverlay() {
+    els.overlay.classList.add('is-open');
+    els.overlay.setAttribute('aria-hidden', 'false');
+    els.overlayInput.value = '';
+    els.suggestions.innerHTML = '';
+    setTimeout(() => els.overlayInput.focus({ preventScroll:true }), 0);
+  }
+  function closeOverlay() {
+    els.overlay.classList.remove('is-open');
+    els.overlay.setAttribute('aria-hidden', 'true');
+    els.suggestions.innerHTML = '';
+    els.overlayInput.blur();
+  }
+  function isOverlayOpen(){ return els.overlay.classList.contains('is-open'); }
+
+  function normalizeQuery(v){ return String(v || '').trim().toLowerCase(); }
+
+  function onQueryChange() {
+    const q = normalizeQuery(els.overlayInput.value);
+    renderSuggestions(getSuggestions(q, 5));
+  }
+
+  function getSuggestions(q, limit = 5) {
+    if (!q) return [];
+    const scored = [];
+    for (const p of allPlayers) {
+      const nickL = (p.nickname || '').toLowerCase();
+      const idx = nickL.indexOf(q);
+      if (idx === -1) continue;
+      const score = (idx === 0 ? 2 : 1);
+      scored.push({ p, score });
+    }
+    scored.sort((a,b) =>
+      (b.score - a.score) ||
+      ((b.p.vittorie || 0) - (a.p.vittorie || 0)) ||
+      (a.p.nickname || '').localeCompare(b.p.nickname || '')
+    );
+    return scored.slice(0, limit).map(s => s.p);
+  }
+
+  function renderSuggestions(list) {
+    if (!list.length) { els.suggestions.innerHTML = ''; return; }
+    els.suggestions.innerHTML = list.map(p => `
+      <li role="option" tabindex="0" data-nick="${escapeHtml(p.nickname)}">
+        <span class="s-nick name">${escapeHtml(p.nickname)}</span>
+      </li>
+    `).join('');
+
+    els.suggestions.querySelectorAll('li').forEach(li => {
+      li.addEventListener('click', () => chooseSuggestion(li.dataset.nick));
+      li.addEventListener('keydown', (e) => { if (e.key === 'Enter') chooseSuggestion(li.dataset.nick); });
     });
-  });
+  }
 
-  searchInput.addEventListener('input', () => {
-    render();
-  });
-  clearSearch.addEventListener('click', () => {
-    searchInput.value = '';
-    render();
-    searchInput.focus();
-  });
+  function clearMatches() {
+    document.querySelectorAll('.match').forEach(el => el.classList.remove('match'));
+  }
 
-  viewSelect.addEventListener('change', (e) => {
-    viewMode = e.target.value;
-    render();
-  });
+  function chooseSuggestion(nickname) {
+    const target = String(nickname || '').toLowerCase();
+    if (!target) return;
+    closeOverlay();
+    clearMatches();
+    const podiumHit = document.querySelector(`.podium .card[data-nick="${cssEscape(target)}"]`);
+    const listHits = document.querySelectorAll(`.ranking li[data-nick="${cssEscape(target)}"]`);
+    if (podiumHit) podiumHit.classList.add('match');
+    listHits.forEach(li => li.classList.add('match'));
+    const first = podiumHit || listHits[0];
+    if (first) first.scrollIntoView({ behavior:'smooth', block:'center' });
+  }
 
-  refreshBtn.addEventListener('click', () => fetchData());
+  function cssEscape(s){ return s.replace(/["\\]/g, '\\$&'); }
 
-  closeDetail.addEventListener('click', closeDetailPanel);
-  document.addEventListener('keydown', (e) => { if (e.key==='Escape') closeDetailPanel(); });
-
-  // init
   fetchData();
 })();
