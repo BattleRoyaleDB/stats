@@ -1,93 +1,291 @@
+/* ===========================
+   BattleRoyale — styles.css
+   - Podio: LVL badge top-left sull’avatar (non clippato, testo bianco)
+   - Liste: LVL chip stessa misura del podio
+   - Ricerca: livello nascosto
+   =========================== */
+
+/* ---------- Design tokens ---------- */
 :root{
-  --bg:#0f1113;
-  --panel:#111315;
-  --muted:#9aa3ac;
-  --accent:#78b0ff;
-  --highlight:#2a6f9e;
-  --row-alt:#0b0c0d;
-  --glass: rgba(255,255,255,0.03);
+  --az1:#00c2ff; --az2:#2dd4ff;
+  --vi1:#7c3aed; --vi2:#a78bfa;
+
+  --bg:#f6f9ff;
+  --surface:#ffffff;
+  --text:#0f172a;
+  --muted:#64748b;
+  --line:#e3e8ff;
+
+  --shadow-top:0 4px 20px rgba(79,70,229,.10);
+  --shadow-card:0 10px 28px rgba(2,6,23,.06);
+  --shadow-badge:0 10px 24px rgba(0,0,0,.18);
+  --shadow-float:0 12px 32px rgba(2,6,23,.18);
 }
 
-*{box-sizing:border-box}
-html,body{height:100%}
+/* ---------- Reset / base ---------- */
+*{ box-sizing:border-box }
+html,body{ height:100% }
 body{
   margin:0;
-  font-family:Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
-  background:linear-gradient(180deg,#070708 0%, #0b0c0d 100%);
-  color:#e6eef6;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+  background:linear-gradient(180deg, var(--bg), #faf7ff);
+  color:var(--text);
   -webkit-font-smoothing:antialiased;
   -moz-osx-font-smoothing:grayscale;
 }
+.wrap{ max-width:920px; margin:0 auto; padding:0 16px }
+.muted{ color:var(--muted) }
 
+/* ---------- Top bar ---------- */
 .topbar{
-  padding:18px 20px;
-  border-bottom:1px solid rgba(255,255,255,0.03);
+  position:sticky; top:0; z-index:10;
+  background:
+    linear-gradient(135deg, #ffffffcc, #ffffffcc),
+    linear-gradient(90deg, rgba(0,194,255,.10), rgba(124,58,237,.10));
+  backdrop-filter:saturate(1.2) blur(6px);
+  border-bottom:1px solid var(--line);
+  box-shadow:var(--shadow-top);
 }
-.topbar h1{margin:0;font-size:20px}
-.subtitle{margin:4px 0 0;color:var(--muted);font-size:13px}
+.topbar .wrap{ padding:16px }
+.topbar-row{ display:flex; align-items:center; justify-content:space-between; gap:12px }
 
-.container{max-width:980px;margin:20px auto;padding:16px}
-
-.controls{
-  display:flex;
-  gap:12px;
-  align-items:center;
-  justify-content:space-between;
-  margin-bottom:12px;
+/* Wordmark */
+.wordmark{
+  position:relative; display:inline-block; margin:0 2px 2px; line-height:1;
+  font-family:"Russo One", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial;
+  font-weight:900; font-size:clamp(28px, 7.5vw, 56px); letter-spacing:.5px;
 }
-.controls .left{display:flex;gap:8px;align-items:center}
-.search input{
-  background:var(--glass);
-  border:1px solid rgba(255,255,255,0.04);
-  color:inherit;
-  padding:10px 12px;
+.wordmark .text{
+  display:block; padding:0 .12em;
+  background:linear-gradient(92deg,#00d1ff, #4f46e5 45%, #8b5cf6);
+  -webkit-background-clip:text; background-clip:text; color:transparent;
+  -webkit-text-stroke:0.6px #0b1020cc;
+  text-shadow:0 1px 0 rgba(0,0,0,.10), 0 10px 26px rgba(79,70,229,.30);
+}
+.wordmark::after{
+  content:""; position:absolute; left:8px; right:8px; bottom:-6px; height:4px; border-radius:999px;
+  background:linear-gradient(90deg,#00d1ff, #4f46e5 40%, #8b5cf6);
+  box-shadow:0 8px 18px rgba(79,70,229,.25);
+}
+.wordmark .glow{
+  position:absolute; left:-12px; right:-12px; bottom:-8px; height:22px;
+  background:
+    radial-gradient(60% 100% at 50% 50%, rgba(0,194,255,.35), transparent),
+    linear-gradient(90deg, rgba(79,70,229,.30), rgba(139,92,246,.30));
+  filter:blur(16px); border-radius:14px; pointer-events:none;
+}
+
+/* Lens button */
+.icon-btn{
+  background:none; border:0; padding:4px; margin:0 0 6px; line-height:0; border-radius:8px; cursor:pointer;
+  transition:transform .15s ease, opacity .15s ease;
+}
+.icon-btn:hover{ transform:translateY(-1px) }
+.icon-lens{ width:30px; height:30px; display:block }
+
+/* ---------- Sections / cards ---------- */
+main.wrap{ padding:18px 16px 28px }
+.grad-title{
+  background-image:linear-gradient(90deg, var(--az1), var(--vi1));
+  -webkit-background-clip:text; background-clip:text; color:transparent;
+}
+.board{
+  background:var(--surface); border:1px solid var(--line); border-radius:14px;
+  box-shadow:var(--shadow-card); padding:14px; margin:18px 0;
+}
+.board-head h2{ margin:0 0 6px 2px; font-size:16px; font-weight:800 }
+
+/* ---------- Podium (2–1–3) ---------- */
+.podium{ display:flex; gap:12px; margin:8px 0 8px }
+.podium .card{
+  position:relative; flex:1; min-width:0;
+  background:#fff; border:1px solid var(--line); border-radius:12px;
+  padding:18px 12px 40px;
+  box-shadow:0 4px 18px rgba(2,6,23,.06);
+  text-align:center; overflow:visible;
+}
+.podium .place-1{ transform:translateY(-6px) }
+.podium .big{
+  position:absolute; right:8px; top:-8px;
+  font-size:54px; font-weight:900; letter-spacing:.4px;
+  color:rgba(15,23,42,.08); pointer-events:none; user-select:none; z-index:0;
+}
+.podium .col{
+  position:relative; z-index:1;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px;
+  padding:0 8px; text-align:center;
+}
+
+/* Avatar (only on podium) */
+.avatar{
+  position:relative; display:inline-flex; align-items:center; justify-content:center;
+  border-radius:999px; border:1px solid #e2e8ff; background:linear-gradient(135deg,#e0f7ff,#efe9ff);
+  overflow:visible; color:#0f172a; font-weight:800;
+}
+.avatar.lg{ width:62px; height:62px; font-size:18px }
+.avatar img{ width:100%; height:100%; object-fit:cover; display:block; border-radius:inherit }
+.avatar .initial{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; border-radius:inherit }
+
+/* LVL badge: top-left sull’avatar (piccolo, testo bianco) */
+.lvl-badge{
+  --lv-bg: linear-gradient(135deg,#00c2ff,#ff6bd6);
+
+  position:absolute; left:-6px; top:-8px; z-index:2;
+  display:inline-flex; align-items:center; gap:3px;
+  padding:2px 4px;
+  border-radius:999px;
+  background:var(--lv-bg);
+  color:#fff !important;
+  font-weight:900; font-size:9px;
+  line-height:1; letter-spacing:.2px;
+  border:1px solid #ffffff;
+  box-shadow:var(--shadow-badge);
+  transform:rotate(-6deg);
+  user-select:none;
+}
+.lvl-badge .pfx{ opacity:.95 }
+
+/* Win badge podio */
+.podium .win-badge{
+  position:absolute; right:-10px; bottom:-12px;
+  padding:10px 16px; border-radius:999px; white-space:nowrap; z-index:2;
+  border:2px solid #fff; box-shadow:var(--shadow-badge); transform:rotate(-6deg);
+  font-weight:900; font-size:18px; line-height:1; color:#111827;
+}
+.podium .place-1 .win-badge{ background:linear-gradient(135deg,#f59e0b,#fbbf24); color:#3b2a00 }
+.podium .place-2 .win-badge{ background:linear-gradient(135deg,#9ca3af,#cbd5e1); color:#1f2937 }
+.podium .place-3 .win-badge{ background:linear-gradient(135deg,#b45309,#f59e0b); color:#3b2a00 }
+
+/* Nickname pulito (no ellissi) */
+.podium .name{
+  display:block;
+  font-weight:800; font-size:14px; line-height:1.22;
+  overflow-wrap:anywhere; word-break:normal; white-space:normal; hyphens:auto;
+  margin-top:4px;
+}
+
+/* ---------- Rankings (lists) ---------- */
+.ranking{
+  margin:0; padding:0 0 0 28px;
+  list-style: decimal outside;
+  border-top:1px dashed var(--line);
+}
+.ranking li{ padding:10px 4px; border-bottom:1px dashed var(--line) }
+.ranking li:last-child{ border-bottom:0 }
+
+.ranking .row{ display:flex; align-items:flex-start; gap:12px }
+.nick{ flex:1 1 auto; display:block; min-width:0 }
+
+/* Riga nome + chip livello inline */
+.name-line{
+  display:inline-flex; align-items:center; gap:6px; flex-wrap:wrap;
+}
+.name{
+  display:inline;
+  font-weight:700; font-size:14px; line-height:1.22;
+  overflow-wrap:anywhere; word-break:normal; white-space:normal; hyphens:auto;
+}
+
+/* Chip livello per le liste: stessa misura del podio (testo bianco) */
+.lvl-chip{
+  --lv-bg: linear-gradient(135deg,#00c2ff,#ff6bd6);
+
+  display:inline-flex; align-items:center; gap:3px;
+  padding:2px 4px;          /* stessa misura del badge podio */
+  border-radius:999px;
+  background:var(--lv-bg);
+  color:#fff !important;    /* testo bianco come nel podio */
+  font-weight:900; font-size:9px; /* stessa misura del badge podio */
+  line-height:1; letter-spacing:.15px;
+  border:1px solid #e2e8f0; /* bordo tenue per separarsi sul bianco */
+  box-shadow:0 4px 10px rgba(2,6,23,.06);
+  user-select:none;
+}
+.lvl-chip .pfx{ opacity:.95 }
+
+/* Metrica a destra con testo in gradiente */
+.metric{
+  flex:0 0 auto; font-weight:900; margin-left:12px;
+  min-width:3ch; text-align:right;
+  background-image:linear-gradient(90deg, var(--az1), var(--vi1));
+  -webkit-background-clip:text; background-clip:text; color:transparent;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Evidenzia ricerca ---------- */
+.match{
+  background:linear-gradient(90deg, rgba(0,194,255,.10), rgba(124,58,237,.10));
   border-radius:8px;
-  min-width:220px;
 }
-#clearSearch{background:transparent;border:0;color:var(--muted);font-size:18px;cursor:pointer}
-
-.controls .right{display:flex;gap:8px;align-items:center}
-.controls select, .controls button{
-  background:rgba(255,255,255,0.03);
-  border:1px solid rgba(255,255,255,0.04);
-  color:inherit;padding:8px 10px;border-radius:8px;cursor:pointer;
+.podium .card.match{
+  outline:2px solid rgba(124,58,237,.45);
+  box-shadow:0 0 0 4px rgba(124,58,237,.10);
 }
 
-.board{overflow:auto;border-radius:10px;background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.005));padding:8px}
-table{width:100%;border-collapse:collapse}
-thead th{
-  text-align:left;padding:10px 12px;font-size:13px;color:var(--muted);position:sticky;top:0;background:transparent;
+/* ---------- Overlay Ricerca ---------- */
+.overlay{
+  position:fixed; inset:0; z-index:50;
+  display:flex; align-items:flex-start; justify-content:center;
+  padding:8vh 16px 16px;
+  opacity:0; visibility:hidden; transition:opacity .18s ease, visibility .18s ease;
 }
-tbody td{padding:12px;color:#dbeaf6;border-top:1px solid rgba(255,255,255,0.02)}
-tr:nth-child(even) td{background:transparent}
-tr:hover td{background:linear-gradient(90deg, rgba(255,255,255,0.01), rgba(255,255,255,0.02));}
-
-.sortable{cursor:pointer}
-.sortable.asc::after{content:" ▴";font-size:12px;color:var(--accent)}
-.sortable.desc::after{content:" ▾";font-size:12px;color:var(--accent)}
-
-.rank{width:52px}
-.nicknameCell{display:flex;gap:10px;align-items:center}
-.avatarSmall{width:36px;height:36px;border-radius:6px;object-fit:cover;border:1px solid rgba(0,0,0,0.5)}
-
-.highlight{background:linear-gradient(90deg, rgba(120,176,255,0.08), rgba(120,176,255,0.02));box-shadow:0 0 0 2px rgba(120,176,255,0.06) inset;border-radius:6px}
-
-.detail{
-  position:fixed;right:18px;bottom:18px;width:300px;background:var(--panel);border:1px solid rgba(255,255,255,0.03);
-  border-radius:12px;padding:12px;box-shadow:0 6px 30px rgba(0,0,0,0.6);
+.overlay.is-open{ opacity:1; visibility:visible }
+.overlay-backdrop{
+  position:absolute; inset:0; background:rgba(10,14,25,.55); backdrop-filter:blur(2px);
 }
-.detail.hidden{display:none}
-.detail .close{position:absolute;right:6px;top:6px;border:0;background:transparent;color:var(--muted);font-size:20px;cursor:pointer}
-.detail .avatar{width:84px;height:84px;border-radius:10px;display:block;margin:6px auto 12px;object-fit:cover}
-.detail-inner{text-align:center}
-.detail .stats{list-style:none;padding:0;margin:8px 0 0}
-.detail .stats li{padding:6px 0;color:var(--muted)}
+.search-modal{
+  position:relative; z-index:1; width:min(720px, 100%);
+  display:flex; flex-direction:column; gap:10px; background:transparent;
+}
+.searchbar{
+  position:relative; background:#fff; border:1px solid var(--line);
+  border-radius:999px; padding:8px 14px 8px 44px; box-shadow:var(--shadow-float);
+}
+.searchbar .prefix{
+  position:absolute; left:16px; top:50%; transform:translateY(-50%);
+  color:#0f172a; opacity:.35; font-weight:900; font-size:18px; pointer-events:none; user-select:none;
+}
+#overlaySearchInput{
+  width:100%; border:0; outline:none; font-size:16px; color:var(--text); background:transparent;
+}
+#overlaySearchInput::placeholder{ color:#94a3b8; opacity:.9 }
 
-.footer{margin-top:14px;text-align:center;color:var(--muted);font-size:13px}
+.suggestions{
+  margin:0; padding:6px; list-style:none; background:#fff; border:1px solid var(--line);
+  border-radius:12px; box-shadow:var(--shadow-float); max-height:42vh; overflow:auto;
+}
+.suggestions:empty{ display:none }
+.suggestions li{
+  padding:10px 12px; border-radius:10px; cursor:pointer;
+  display:block;
+}
+.suggestions li:hover{ background:#f1f5ff }
+.suggestions .s-nick{ font-weight:700 }
 
-/* responsive */
-@media (max-width:640px){
-  .container{padding:8px}
-  .detail{left:8px;right:8px;bottom:8px;width:auto}
-  .controls{flex-direction:column;align-items:stretch;gap:8px}
+/* Nascondi badge/chip livello in overlay & suggerimenti */
+.suggestions .lvl-badge,
+.searchbar .lvl-badge,
+.suggestions .lvl-chip,
+.searchbar .lvl-chip{ display:none !important }
+
+/* ---------- Footer ---------- */
+.footer{ display:flex; justify-content:center; padding:8px 0 2px }
+
+/* ---------- Responsive ---------- */
+@media (max-width:560px){
+  .podium{ gap:8px }
+  .podium .big{ font-size:46px }
+  .podium .win-badge{ right:-8px; bottom:-10px; padding:8px 12px; font-size:16px; transform:rotate(-5deg) }
+  .avatar.lg{ width:58px; height:58px }
+  .lvl-badge{
+    left:-5px; top:-7px;
+    padding:1.5px 4px;
+    font-size:8px;
+    border-width:1px;
+  }
+  .lvl-chip{
+    padding:1.5px 4px;   /* stessa misura del badge podio in mobile */
+    font-size:8px;       /* stessa misura del badge podio in mobile */
+  }
+  .name{ font-size:13px }
 }
