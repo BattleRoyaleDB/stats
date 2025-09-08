@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Profilo — BattleRoyale</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Russo+One&display=swap" rel="stylesheet">
+  <!-- Riusa lo stesso stile della pagina principale -->
+  <link rel="stylesheet" href="styles.css" />
+  <!-- Aggiunte minime per la pagina profilo -->
+  <link rel="stylesheet" href="profile.css" />
+  <script>
+    // Stessa base immagini della home
+    window.AVATAR_BASE = "https://neo-lesson-civic-fuji.trycloudflare.com/";
+  </script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap">
+      <div class="topbar-row">
+        <h1 class="wordmark" aria-label="BattleRoyale">
+          <span class="glow"></span>
+          <span class="text">BattleRoyale</span>
+        </h1>
+        <!-- Freccia rimossa come richiesto -->
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="board">
+      <div class="board-head">
+        <h2 class="grad-title">Profilo</h2>
+      </div>
+      <div id="profileCard"></div>
+    </section>
+
+    <section class="board">
+      <div class="board-head">
+        <h2 class="grad-title">Statistiche</h2>
+      </div>
+      <div id="statsGrid" class="stats-grid"></div>
+    </section>
+
+    <section class="board">
+      <div class="board-head">
+        <h2 class="grad-title">Achievements</h2>
+      </div>
+
+      <!-- Prossimo achievement (cliccabile per espandere tutti) + contenitore completo -->
+      <div id="achRoot" class="ach-root"></div>
+    </section>
+  </main>
+
+  <template id="tplProfile">
+    <div class="profile-hero">
+      <span class="avatar lg">
+        <img alt="" />
+        <span class="initial">?</span>
+        <span class="lvl-badge"><span class="pfx">LVL</span> <span class="lvl-val">1</span></span>
+      </span>
+      <div class="hero-text">
+        <div class="nick" id="nick"></div>
+        <div class="sub muted" id="subId"></div>
+      </div>
+    </div>
+
+    <div class="progress">
+      <div class="row">
+        <span class="label">Livello <span id="lvlText">1</span></span>
+        <span class="pct"><span id="xpNow">0</span>/<span id="xpMax">100</span></span>
+      </div>
+      <div class="bar"><span class="fill" id="xpFill" style="width:0%"></span></div>
+    </div>
+  </template>
+
+  <script src="profile.js"></script>
+</body>
+</html>
