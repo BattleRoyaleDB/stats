@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Russo+One&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css" />
-  <!-- Imposta qui l'host delle immagini (slash finale) -->
+  <!-- Host immagini (slash finale) -->
   <script>
     window.AVATAR_BASE = "https://neo-lesson-civic-fuji.trycloudflare.com/";
   </script>
@@ -50,20 +50,33 @@
       <ol class="ranking" id="listVittorie"></ol>
     </section>
 
+    <!-- RANK (al posto di Morti) -->
+    <section class="board">
+      <div class="board-head">
+        <h2 class="grad-title">🏅 Top 10 Rank</h2>
+      </div>
+      <!-- Intestazione colonne a destra: punti | rank -->
+      <div class="list-head">
+        <div class="right dual">
+          <span>punti</span>
+          <span>rank</span>
+        </div>
+      </div>
+      <ol class="ranking" id="listRank"></ol>
+    </section>
+
     <!-- KILL -->
     <section class="board">
       <div class="board-head">
         <h2 class="grad-title">🔪 Top 5 Kill</h2>
       </div>
-      <ol class="ranking" id="listKill"></ol>
-    </section>
-
-    <!-- MORTI -->
-    <section class="board">
-      <div class="board-head">
-        <h2 class="grad-title">💀 Top 5 Morti</h2>
+      <!-- Intestazione colonna a destra: kills -->
+      <div class="list-head">
+        <div class="right">
+          <span>kills</span>
+        </div>
       </div>
-      <ol class="ranking" id="listMorti"></ol>
+      <ol class="ranking" id="listKill"></ol>
     </section>
 
     <footer class="footer muted">
@@ -71,20 +84,7 @@
     </footer>
   </main>
 
-  <!-- Overlay Ricerca -->
-  <div id="searchOverlay" class="overlay" aria-hidden="true">
-    <div class="overlay-backdrop" data-close="1"></div>
-    <div class="search-modal" role="dialog" aria-modal="true" aria-label="Cerca nickname">
-      <div class="searchbar">
-        <span class="prefix" aria-hidden="true">@</span>
-        <input id="overlaySearchInput" type="text" placeholder="Cerca nickname..." autocomplete="off" spellcheck="false" inputmode="latin" />
-      </div>
-      <ul id="suggestions" class="suggestions" role="listbox" aria-label="Suggerimenti"></ul>
-      <p class="hint">Digita per cercare. Invio seleziona il primo risultato. ESC per chiudere.</p>
-    </div>
-  </div>
-
   <!-- Cache-busting facoltativo con ?v= -->
-  <script src="app.js?v=1"></script>
+  <script src="app.js?v=5"></script>
 </body>
 </html>
