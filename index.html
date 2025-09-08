@@ -2,139 +2,83 @@
 <html lang="it">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>BattleRoyaleDB - Leaderboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>BattleRoyale — Leaderboard</title>
+  <!-- Font per il titolo -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Russo+One&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <header class="topbar">
-    <h1>BattleRoyaleDB</h1>
-    <p class="subtitle">Leaderboard — vittorie • uccisioni • morti</p>
+    <div class="wrap">
+      <div class="topbar-row">
+        <h1 class="wordmark" aria-label="BattleRoyale">
+          <span class="glow"></span>
+          <span class="text">BattleRoyale</span>
+        </h1>
+
+        <!-- Lente minimal -->
+        <button class="icon-btn" type="button" title="Cerca" aria-label="Cerca">
+          <svg class="icon-lens" viewBox="0 0 24 24" aria-hidden="true">
+            <defs>
+              <linearGradient id="lensGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#00c2ff"/>
+                <stop offset="100%" stop-color="#7c3aed"/>
+              </linearGradient>
+            </defs>
+            <circle cx="11" cy="11" r="7" fill="none" stroke="url(#lensGrad)" stroke-width="2"></circle>
+            <line x1="16.65" y1="16.65" x2="21" y2="21" stroke="url(#lensGrad)" stroke-width="2" stroke-linecap="round"></line>
+          </svg>
+        </button>
+      </div>
+    </div>
   </header>
 
-  <main class="container">
-    <section class="controls">
-      <div class="left">
-        <label class="search">
-          <input id="searchInput" placeholder="Cerca nickname..." autocomplete="off" />
-        </label>
-        <button id="clearSearch" title="Pulisci">×</button>
-      </div>
-
-      <div class="right">
-        <label>
-          Mostra:
-          <select id="viewSelect">
-            <option value="top10">Top 10</option>
-            <option value="all">Tutti</option>
-          </select>
-        </label>
-        <button id="refreshBtn">Aggiorna</button>
-      </div>
-    </section>
-
+  <main class="wrap">
+    <!-- VITTORIE: Podio (2–1–3) + lista 4–10 -->
     <section class="board">
-      <table id="leaderboard" role="table">
-        <thead>
-          <tr>
-            <th data-col="rank">#</th>
-            <th data-col="nickname">Nickname</th>
-            <th data-col="vittorie" class="sortable">Vittorie ▾</th>
-            <th data-col="kill" class="sortable">Uccisioni</th>
-            <th data-col="morti" class="sortable">Morti</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
+      <div class="board-head">
+        <h2 class="grad-title">🏆 Top 10 Vittorie</h2>
+      </div>
+      <div class="podium" id="podiumTop"></div>
+      <ol class="ranking" id="listVittorie"></ol>
     </section>
 
-    <aside id="detailPanel" class="detail hidden" aria-hidden="true">
-      <button id="closeDetail" class="close">×</button>
-      <div class="detail-inner">
-        <img id="detailAvatar" class="avatar" alt="" src="" />
-        <h2 id="detailNick"></h2>
-        <ul class="stats">
-          <li>Vittorie: <strong id="detailVittorie">0</strong></li>
-          <li>Uccisioni: <strong id="detailKill">0</strong></li>
-          <li>Morti: <strong id="detailMorti">0</strong></li>
-        </ul>
+    <!-- KILL -->
+    <section class="board">
+      <div class="board-head">
+        <h2 class="grad-title">🔪 Top 5 Kill</h2>
       </div>
-    </aside>
+      <ol class="ranking" id="listKill"></ol>
+    </section>
 
-    <footer class="footer">
-      <small>Aggiorna followers.json e fai push per aggiornare la classifica.</small>
+    <!-- MORTI -->
+    <section class="board">
+      <div class="board-head">
+        <h2 class="grad-title">💀 Top 5 Morti</h2>
+      </div>
+      <ol class="ranking" id="listMorti"></ol>
+    </section>
+
+    <footer class="footer muted">
+      <small></small>
     </footer>
   </main>
 
-  <script src="app.js"></script>
-</body>
-</html><!doctype html>
-<html lang="it">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>BattleRoyaleDB - Leaderboard</title>
-  <link rel="stylesheet" href="styles.css" />
-</head>
-<body>
-  <header class="topbar">
-    <h1>BattleRoyaleDB</h1>
-    <p class="subtitle">Leaderboard — vittorie • uccisioni • morti</p>
-  </header>
-
-  <main class="container">
-    <section class="controls">
-      <div class="left">
-        <label class="search">
-          <input id="searchInput" placeholder="Cerca nickname..." autocomplete="off" />
-        </label>
-        <button id="clearSearch" title="Pulisci">×</button>
+  <!-- Overlay Ricerca -->
+  <div id="searchOverlay" class="overlay" aria-hidden="true">
+    <div class="overlay-backdrop" data-close="1"></div>
+    <div class="search-modal" role="dialog" aria-modal="true" aria-label="Cerca nickname">
+      <div class="searchbar">
+        <span class="prefix" aria-hidden="true">@</span>
+        <input id="overlaySearchInput" type="text" placeholder="Cerca nickname..." autocomplete="off" spellcheck="false" inputmode="latin" />
       </div>
-
-      <div class="right">
-        <label>
-          Mostra:
-          <select id="viewSelect">
-            <option value="top10">Top 10</option>
-            <option value="all">Tutti</option>
-          </select>
-        </label>
-        <button id="refreshBtn">Aggiorna</button>
-      </div>
-    </section>
-
-    <section class="board">
-      <table id="leaderboard" role="table">
-        <thead>
-          <tr>
-            <th data-col="rank">#</th>
-            <th data-col="nickname">Nickname</th>
-            <th data-col="vittorie" class="sortable">Vittorie ▾</th>
-            <th data-col="kill" class="sortable">Uccisioni</th>
-            <th data-col="morti" class="sortable">Morti</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </section>
-
-    <aside id="detailPanel" class="detail hidden" aria-hidden="true">
-      <button id="closeDetail" class="close">×</button>
-      <div class="detail-inner">
-        <img id="detailAvatar" class="avatar" alt="" src="" />
-        <h2 id="detailNick"></h2>
-        <ul class="stats">
-          <li>Vittorie: <strong id="detailVittorie">0</strong></li>
-          <li>Uccisioni: <strong id="detailKill">0</strong></li>
-          <li>Morti: <strong id="detailMorti">0</strong></li>
-        </ul>
-      </div>
-    </aside>
-
-    <footer class="footer">
-      <small>Aggiorna followers.json e fai push per aggiornare la classifica.</small>
-    </footer>
-  </main>
+      <ul id="suggestions" class="suggestions" role="listbox" aria-label="Suggerimenti"></ul>
+      <p class="hint">Digita per cercare. Invio seleziona il primo risultato. ESC per chiudere.</p>
+    </div>
+  </div>
 
   <script src="app.js"></script>
 </body>
