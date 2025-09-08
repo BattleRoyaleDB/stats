@@ -1,5 +1,64 @@
 (() => {
+  // ===========================
+  // Config avatar (tutto qui)
+  // ===========================
   const DATA_URL = 'followers.json';
+
+  // Placeholder: prova in ordine .jpg, .jpeg, .webp, .png
+  const PLACEHOLDER_CANDIDATES = ['placeholder.jpg', 'placeholder.jpeg', 'placeholder.webp', 'placeholder.png'];
+
+  // URL predefinito del tunnel (lascia vuoto e impostalo dal browser con Alt+A)
+  const DEFAULT_AVATAR_BASE = '';
+
+  const AVATAR_KEY = 'avatar_base';
+  function sanitizeBase(url) {
+    if (typeof url !== 'string') return '';
+    url = url.trim();
+    if (!url) return '';
+    if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+    if (!url.endsWith('/')) url += '/';
+    return url;
+  }
+  function getAvatarBase() {
+    const fromLS = localStorage.getItem(AVATAR_KEY) || '';
+    return sanitizeBase(fromLS) || sanitizeBase(DEFAULT_AVATAR_BASE);
+  }
+  function setAvatarBase(url) {
+    const clean = sanitizeBase(url);
+    if (!clean) {
+      localStorage.removeItem(AVATAR_KEY);
+      return '';
+    }
+    localStorage.setItem(AVATAR_KEY, clean);
+    return clean;
+  }
+  // Scorciatoia: Alt+A per impostare rapidamente l’URL del tunnel (https://...trycloudflare.com/)
+  window.addEventListener('keydown', (e) => {
+    if (e.altKey && (e.key === 'a' || e.key === 'A')) {
+      const current = getAvatarBase();
+      const input = prompt('Imposta AVATAR BASE (https://.../):', current);
+      if (input !== null) {
+        const saved = setAvatarBase(input);
+        alert(saved ? 'Salvato: ' + saved : 'URL non valido. Rimosso.');
+      }
+    }
+  });
+
+  function buildAvatarURL(file) {
+    if (!file) return '';
+    const f = String(file);
+    if (/^https?:\/\//i.test(f)) return f; // già completo
+    const base = getAvatarBase();
+    if (!base) return '';
+    return base + encodeURIComponent(f);
+  }
+
+  // Costruisce la lista completa di URL placeholder da provare
+  function buildPlaceholderURLs() {
+    const base = getAvatarBase();
+    if (!base) return [];
+    return PLACEHOLDER_CANDIDATES.map(name => base + encodeURIComponent(name));
+  }
 
   const els = {
     podiumTop: document.getElementById('podiumTop'),
@@ -139,11 +198,17 @@
       .replaceAll("'",'&#39;');
   }
 
+  // Costruisce l'URL dell'immagine:
+  // - se img_url_original è un URL assoluto, usa quello;
+  // - altrimenti combina AVATAR_BASE con img_url (nome file nella tua cartella immagini).
   function photoUrl(r) {
-    return r.img_url_original || r.img_url || '';
+    const orig = r.img_url_original ? String(r.img_url_original) : '';
+    if (/^https?:\/\//i.test(orig)) return orig;
+    const file = r.img_url ? String(r.img_url) : (orig || '');
+    return buildAvatarURL(file);
   }
 
-  // Visuals per badge/chiP livello: gradiente + bordo + colore testo
+  // Visuals per badge/chip livello
   function levelVisuals(lvl) {
     const L = Math.max(1, Math.min(150, Number(lvl) || 1));
     let bg, border = '#ffffff', color = '#111827', title = `Livello ${L}`;
@@ -166,15 +231,30 @@
   }
   function levelChipMarkup(lvl) {
     const v = levelVisuals(lvl);
-    // per liste usiamo bordo più chiaro (impostato in CSS ma lo lasciamo override se serve)
     return `<span class="lvl-chip" style="--lv-bg:${v.bg};--lv-color:${v.color}" title="${escapeHtml(v.title)}"><span class="pfx">LVL</span> ${Number(lvl) || 1}</span>`;
   }
 
+  // Avatar per il podio: immagine + iniziale + badge livello
   function avatarMarkup(r) {
     const url = photoUrl(r);
+    const fallbacks = buildPlaceholderURLs(); // array di URL placeholder
     const initial = (r.nickname || '?').match(/[A-Za-z0-9]/)?.[0]?.toUpperCase() || '?';
-    const img = url ? `<img src="${escapeHtml(url)}" alt="">` : '';
-    // Inserisco il badge livello dentro l'avatar (overlay top-left)
+
+    // Se non c'è URL, prova direttamente il primo placeholder (se disponibile)
+    let imgSrc = '';
+    let fbIdx = 0;
+    if (url) {
+      imgSrc = url;
+    } else if (fallbacks.length) {
+      imgSrc = fallbacks[0];
+      fbIdx = 1;
+    }
+
+    const dataFallbacks = fallbacks.join('|'); // es. "https://.../placeholder.jpg|https://.../placeholder.webp"
+    const img = imgSrc
+      ? `<img src="${escapeHtml(imgSrc)}" alt="" data-fallbacks="${escapeHtml(dataFallbacks)}" data-fb-idx="${fbIdx}">`
+      : '';
+
     return `
       <span class="avatar lg">
         ${img}
@@ -218,6 +298,9 @@
       .map((r, i) => ({ r, pos: i + 1 }));
     els.listM.removeAttribute('start');
     els.listM.innerHTML = listRowsMarkup(mRanked, 'morti');
+
+    // Dopo aver scritto l'HTML, aggancia handler immagini
+    wireAvatarHandlers();
   }
 
   // Podio: avatar con badge livello + nickname pulito sotto
@@ -260,6 +343,47 @@
         </li>
       `;
     }).join('');
+  }
+
+  // Gestione immagini: nasconde l'iniziale quando carica, prova più placeholder su errore
+  function wireAvatarHandlers() {
+    document.querySelectorAll('.avatar img').forEach(img => {
+      const av = img.closest('.avatar');
+      const initialEl = av?.querySelector('.initial');
+      const listStr = img.getAttribute('data-fallbacks') || '';
+      const list = listStr ? listStr.split('|').filter(Boolean) : [];
+      const nextIdxFromAttr = parseInt(img.getAttribute('data-fb-idx') || '0', 10);
+      let nextIdx = isNaN(nextIdxFromAttr) ? 0 : nextIdxFromAttr;
+
+      function onOk() {
+        if (img.naturalWidth > 1) {
+          av?.classList.add('has-img');
+          if (initialEl) initialEl.style.opacity = '0';
+        }
+      }
+      function onFail() {
+        if (nextIdx < list.length) {
+          const candidate = list[nextIdx++];
+          img.setAttribute('data-fb-idx', String(nextIdx));
+          if (candidate && img.src !== candidate) {
+            img.src = candidate; // prova prossimo placeholder
+            return;
+          }
+        }
+        // esauriti i placeholder
+        av?.classList.remove('has-img');
+        if (initialEl) initialEl.style.opacity = '';
+      }
+
+      img.addEventListener('load', onOk);
+      img.addEventListener('error', onFail);
+
+      // Stato iniziale (se già in cache o se l'URL iniziale fallisce subito)
+      if (img.complete) {
+        if (img.naturalWidth > 1) onOk();
+        else onFail();
+      }
+    });
   }
 
   /* ====== Overlay Ricerca ====== */
