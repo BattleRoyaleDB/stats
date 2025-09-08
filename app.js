@@ -4,6 +4,40 @@
   // Placeholder: prova in ordine .jpg, .jpeg, .webp, .png
   const PLACEHOLDER_CANDIDATES = ['placeholder.jpg', 'placeholder.jpeg', 'placeholder.webp', 'placeholder.png'];
 
+  // ---------- Scoring per Rank ----------
+  const W_WIN   = 100;
+  const W_KILL  = 55;
+  const W_LEVEL = 45;
+  const W_MORTI = 10;
+
+  const nz = v => Number.isFinite(+v) ? +v : 0;
+
+  function computeScore(r) {
+    const wins  = nz(r.vittorie);
+    const kills = nz(r.kill);
+    const lvl   = nz(r.livello);
+    const morti = nz(r.morti); // partite giocate
+    return wins*W_WIN + kills*W_KILL + lvl*W_LEVEL + morti*W_MORTI;
+  }
+
+  function comparePlayersByScore(a, b) {
+    // a,b = { r, S } oppure record puri
+    const ra = a.r || a, rb = b.r || b;
+    const Sa = 'S' in a ? a.S : computeScore(ra);
+    const Sb = 'S' in b ? b.S : computeScore(rb);
+
+    if (Sb !== Sa) return Sb - Sa;                               // 1) Score
+    if (nz(rb.vittorie)   !== nz(ra.vittorie))   return nz(rb.vittorie)   - nz(ra.vittorie);   // 2) vittorie
+    if (nz(rb.kill)       !== nz(ra.kill))       return nz(rb.kill)       - nz(ra.kill);       // 3) kill
+    if (nz(rb.livello)    !== nz(ra.livello))    return nz(rb.livello)    - nz(ra.livello);    // 4) livello
+    if (nz(rb.morti)      !== nz(ra.morti))      return nz(rb.morti)      - nz(ra.morti);      // 5) morti
+    if (nz(rb.esperienza) !== nz(ra.esperienza)) return nz(rb.esperienza) - nz(ra.esperienza); // 6) esperienza
+    const na = String(ra.nickname || '').toLowerCase();                     // 7) nickname
+    const nb = String(rb.nickname || '').toLowerCase();
+    return na.localeCompare(nb);
+  }
+
+  // ---------- Helpers immagini / URL ----------
   function sanitizeBase(url) {
     if (typeof url !== 'string') return '';
     url = url.trim();
@@ -28,12 +62,23 @@
     if (!base) return [];
     return PLACEHOLDER_CANDIDATES.map(name => base + encodeURIComponent(name));
   }
+  function escapeHtml(s) {
+    return String(s)
+      .replaceAll('&','&amp;')
+      .replaceAll('<','&lt;')
+      .replaceAll('>','&gt;')
+      .replaceAll('"','&quot;')
+      .replaceAll("'",'&#39;');
+  }
+  function profileHref(nickname) {
+    return `profile.html?nick=${encodeURIComponent(String(nickname || ''))}`;
+  }
 
   const els = {
     podiumTop: document.getElementById('podiumTop'),
     listV: document.getElementById('listVittorie'),
     listK: document.getElementById('listKill'),
-    listM: document.getElementById('listMorti'),
+    listR: document.getElementById('listRank'),
     lensBtn: document.querySelector('.icon-btn'),
     overlay: document.getElementById('searchOverlay'),
     overlayInput: document.getElementById('overlaySearchInput'),
@@ -42,6 +87,8 @@
   };
 
   let allPlayers = [];
+  let rankMap = new Map(); // nickname(lc) -> { rank, S }
+  let totalPlayers = 0;
 
   async function fetchData() {
     try {
@@ -59,12 +106,22 @@
         if (!prev || (rec.vittorie || 0) > (prev.vittorie || 0)) map.set(key, rec);
       }
       allPlayers = [...map.values()];
+      totalPlayers = allPlayers.length;
+
+      // Calcolo Score e ranking globale
+      const scored = allPlayers.map(p => ({ r: p, S: computeScore(p) }));
+      scored.sort(comparePlayersByScore);
+      rankMap = new Map();
+      scored.forEach((e, i) => {
+        const key = (e.r.nickname || '').toLowerCase();
+        rankMap.set(key, { rank: i + 1, S: e.S });
+      });
 
       if (els.footerSmall) {
-        els.footerSmall.textContent = `Giocatori caricati: ${rows.length} • Unici: ${allPlayers.length}`;
+        els.footerSmall.textContent = `Giocatori caricati: ${rows.length}...`;
       }
 
-      renderAll(rows);
+      renderAll(rows, scored);
       setupOverlaySearch();
     } catch (e) {
       console.error('Errore fetch/parsing followers.json:', e);
@@ -73,7 +130,7 @@
   }
 
   function showError(msg) {
-    [els.listV, els.listK, els.listM].forEach(el => {
+    [els.listV, els.listK, els.listR].forEach(el => {
       if (el) el.innerHTML = `<li class="muted" style="padding:10px;text-align:center;list-style:none">${msg}</li>`;
     });
     if (els.podiumTop) els.podiumTop.innerHTML = '';
@@ -158,26 +215,19 @@
     };
   }
 
-  function escapeHtml(s) {
-    return String(s)
-      .replaceAll('&','&amp;')
-      .replaceAll('<','&lt;')
-      .replaceAll('>','&gt;')
-      .replaceAll('"','&quot;')
-      .replaceAll("'",'&#39;');
-  }
-
-  // Costruisce l'URL dell'immagine:
-  // - se img_url_original è un URL assoluto, usa quello;
-  // - altrimenti combina AVATAR_BASE con img_url (nome file).
+  // Costruisce l'URL dell'immagine finale
   function photoUrl(r) {
     const orig = r.img_url_original ? String(r.img_url_original) : '';
     if (/^https?:\/\//i.test(orig)) return orig;
     const file = r.img_url ? String(r.img_url) : (orig || '');
-    return buildAvatarURL(file);
+    const base = getAvatarBase();
+    if (!base) return '';
+    if (!file) return '';
+    if (/^https?:\/\//i.test(file)) return file;
+    return base + encodeURIComponent(file);
   }
 
-  // Visuals per badge/chip livello
+  // Visuals livello
   function levelVisuals(lvl) {
     const L = Math.max(1, Math.min(150, Number(lvl) || 1));
     let bg, border = '#ffffff', color = '#111827', title = `Livello ${L}`;
@@ -193,7 +243,6 @@
     else               { bg = 'linear-gradient(135deg,#00c2ff,#ff6bd6)'; border = '#3b82f6'; color = '#111827'; }
     return { bg, border, color, title };
   }
-
   function levelBadgeMarkup(lvl) {
     const v = levelVisuals(lvl);
     return `<span class="lvl-badge" style="--lv-bg:${v.bg};--lv-border:${v.border};--lv-color:${v.color}" title="${escapeHtml(v.title)}"><span class="pfx">LVL</span> ${Number(lvl) || 1}</span>`;
@@ -203,21 +252,16 @@
     return `<span class="lvl-chip" style="--lv-bg:${v.bg};--lv-color:${v.color}" title="${escapeHtml(v.title)}"><span class="pfx">LVL</span> ${Number(lvl) || 1}</span>`;
   }
 
-  // Avatar per il podio: immagine + iniziale + badge livello
+  // Avatar per il podio
   function avatarMarkup(r) {
     const url = photoUrl(r);
-    const fallbacks = buildPlaceholderURLs(); // array di URL placeholder
+    const fallbacks = buildPlaceholderURLs();
     const initial = (r.nickname || '?').match(/[A-Za-z0-9]/)?.[0]?.toUpperCase() || '?';
 
-    // Se non c'è URL, prova direttamente il primo placeholder (se disponibile)
     let imgSrc = '';
     let fbIdx = 0;
-    if (url) {
-      imgSrc = url;
-    } else if (fallbacks.length) {
-      imgSrc = fallbacks[0];
-      fbIdx = 1;
-    }
+    if (url) imgSrc = url;
+    else if (fallbacks.length) { imgSrc = fallbacks[0]; fbIdx = 1; }
 
     const dataFallbacks = fallbacks.join('|');
     const img = imgSrc
@@ -233,10 +277,9 @@
     `;
   }
 
-  function renderAll(data) {
+  function renderAll(data, scoredGlobalSorted) {
     const vNonZero = data.filter(d => (d.vittorie || 0) > 0);
     const kNonZero = data.filter(d => (d.kill || 0) > 0);
-    const mNonZero = data.filter(d => (d.morti || 0) > 0);
 
     // VITTORIE
     const vSorted = [...vNonZero].sort((a,b) => (b.vittorie - a.vittorie) || a.nickname.localeCompare(b.nickname));
@@ -252,6 +295,11 @@
       els.listV.innerHTML = '';
     }
 
+    // RANK Top 10 (Score)
+    const topRank = (scoredGlobalSorted && scoredGlobalSorted.length ? scoredGlobalSorted : allPlayers.map(p => ({ r: p, S: computeScore(p) })).sort(comparePlayersByScore)).slice(0, 10);
+    els.listR.removeAttribute('start');
+    els.listR.innerHTML = listRankMarkup(topRank);
+
     // KILL Top 5
     const kRanked = [...kNonZero]
       .sort((a,b) => (b.kill - a.kill) || a.nickname.localeCompare(b.nickname))
@@ -260,61 +308,80 @@
     els.listK.removeAttribute('start');
     els.listK.innerHTML = listRowsMarkup(kRanked, 'kill');
 
-    // MORTI Top 5
-    const mRanked = [...mNonZero]
-      .sort((a,b) => (b.morti - a.morti) || a.nickname.localeCompare(b.nickname))
-      .slice(0, 5)
-      .map((r, i) => ({ r, pos: i + 1 }));
-    els.listM.removeAttribute('start');
-    els.listM.innerHTML = listRowsMarkup(mRanked, 'morti');
-
     // Dopo aver scritto l'HTML, aggancia handler immagini
     wireAvatarHandlers();
   }
 
-  // Podio: avatar con badge livello + nickname pulito sotto
+  // Podio: avatar con badge livello + nickname link
   function renderPodium(entries) {
     const [one, two, three] = [entries[0], entries[1], entries[2]];
     const card = (entry) => {
       if (!entry) return '';
       const { r, pos } = entry;
+      const href = profileHref(r.nickname);
       return `
-        <div class="card place-${pos}" data-nick="${escapeHtml((r.nickname || '').toLowerCase())}">
+        <a class="card place-${pos}" data-nick="${escapeHtml((r.nickname || '').toLowerCase())}" href="${href}">
           <div class="big">${pos}</div>
           <div class="col">
             ${avatarMarkup(r)}
             <span class="name" title="${escapeHtml(r.nickname)}">${escapeHtml(r.nickname)}</span>
           </div>
           <div class="win-badge" title="${r.vittorie}">${r.vittorie}</div>
-        </div>
+        </a>
       `;
     };
     const html = `${card(two)}${card(one)}${card(three)}`;
     els.podiumTop.innerHTML = html;
   }
 
-  // Liste: nickname + chip livello + metrica
+  // Liste generiche: nickname + chip livello + metrica a destra
   function listRowsMarkup(items, metric) {
     if (!items.length) return '';
     return items.map(({ r }) => {
       const value = r[metric] ?? 0;
+      const href = profileHref(r.nickname);
       return `
         <li data-nick="${escapeHtml((r.nickname || '').toLowerCase())}">
-          <div class="row">
+          <a class="row" href="${href}" title="Apri profilo di ${escapeHtml(r.nickname)}">
             <span class="nick">
               <span class="name-line">
-                <span class="name" title="${escapeHtml(r.nickname)}">${escapeHtml(r.nickname)}</span>
+                <span class="name">${escapeHtml(r.nickname)}</span>
                 ${levelChipMarkup(r.livello)}
               </span>
             </span>
             <span class="metric" title="${value}">${value}</span>
-          </div>
+          </a>
         </li>
       `;
     }).join('');
   }
 
-  // Gestione immagini: nasconde l'iniziale quando carica, prova più placeholder su errore
+  // Lista Rank: ordinata per Score globale
+  function listRankMarkup(scoredItems) {
+    if (!scoredItems.length) return '';
+    return scoredItems.map(({ r, S }, i) => {
+      const href = profileHref(r.nickname);
+      const title = `Rank #${i+1} — Punti ${S}`;
+      return `
+        <li data-nick="${escapeHtml((r.nickname || '').toLowerCase())}">
+          <a class="row" href="${href}" title="${escapeHtml(title)}">
+            <span class="nick">
+              <span class="name-line">
+                <span class="name">${escapeHtml(r.nickname)}</span>
+                ${levelChipMarkup(r.livello)}
+              </span>
+            </span>
+            <span class="metric dual" title="Punti e Rank">
+              <span class="points">${S}</span>
+              <span class="rank">#${i+1}</span>
+            </span>
+          </a>
+        </li>
+      `;
+    }).join('');
+  }
+
+  // Gestione immagini: nasconde l'iniziale quando carica, prova placeholder su errore
   function wireAvatarHandlers() {
     document.querySelectorAll('.avatar img').forEach(img => {
       const av = img.closest('.avatar');
@@ -335,11 +402,10 @@
           const candidate = list[nextIdx++];
           img.setAttribute('data-fb-idx', String(nextIdx));
           if (candidate && img.src !== candidate) {
-            img.src = candidate; // prova prossimo placeholder
+            img.src = candidate;
             return;
           }
         }
-        // esauriti i placeholder
         av?.classList.remove('has-img');
         if (initialEl) initialEl.style.opacity = '';
       }
@@ -369,10 +435,10 @@
         e.preventDefault();
         const first = els.suggestions.querySelector('li');
         if (first) {
-          chooseSuggestion(first.dataset.nick);
+          goToProfile(first.dataset.nick);
         } else {
           const q = normalizeQuery(els.overlayInput.value);
-          if (q) chooseSuggestion(q);
+          if (q) goToProfile(q);
         }
       }
     });
@@ -427,29 +493,15 @@
     `).join('');
 
     els.suggestions.querySelectorAll('li').forEach(li => {
-      li.addEventListener('click', () => chooseSuggestion(li.dataset.nick));
-      li.addEventListener('keydown', (e) => { if (e.key === 'Enter') chooseSuggestion(li.dataset.nick); });
+      li.addEventListener('click', () => goToProfile(li.dataset.nick));
+      li.addEventListener('keydown', (e) => { if (e.key === 'Enter') goToProfile(li.dataset.nick); });
     });
   }
 
-  function clearMatches() {
-    document.querySelectorAll('.match').forEach(el => el.classList.remove('match'));
+  function goToProfile(nickname) {
+    const href = profileHref(nickname);
+    window.location.href = href;
   }
-
-  function chooseSuggestion(nickname) {
-    const target = String(nickname || '').toLowerCase();
-    if (!target) return;
-    closeOverlay();
-    clearMatches();
-    const podiumHit = document.querySelector(`.podium .card[data-nick="${cssEscape(target)}"]`);
-    const listHits = document.querySelectorAll(`.ranking li[data-nick="${cssEscape(target)}"]`);
-    if (podiumHit) podiumHit.classList.add('match');
-    listHits.forEach(li => li.classList.add('match'));
-    const first = podiumHit || listHits[0];
-    if (first) first.scrollIntoView({ behavior:'smooth', block:'center' });
-  }
-
-  function cssEscape(s){ return s.replace(/["\\]/g, '\\$&'); }
 
   fetchData();
 })();
