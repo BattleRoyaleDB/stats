@@ -286,8 +286,8 @@ main.wrap{ padding:18px 16px 28px }
     border-width:1px;
   }
   .lvl-chip{
-    padding:1.5px 4px;   /* stessa misura del badge podio in mobile */
-    font-size:8px;       /* stessa misura del badge podio in mobile */
+    padding:1.5px 4px;
+    font-size:8px;
   }
   .name{ font-size:13px }
 }
